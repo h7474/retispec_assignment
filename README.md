@@ -2,8 +2,8 @@
 
 ### Build application
 - Install Docker Compose version v2.6.0.
-- Navigate to `/backend`.
-- Run `docker compose up --build retispec` to run db and assignment.
+- Navigate to `/backend` directory.
+- Run `docker compose up --build retispec` to run `db` and `assignment` containers.
 
 ### Monitor Application
 - Run `docker ps` to check if both db and assignment are up and running.
