@@ -47,4 +47,4 @@
 - Send GET request to http://localhost:80/download/id to download an image belonging to an acquisition where id is acquisition id.
 
 ### Frontend
-- Open `home.html` to upload an acquisition instead of using Postman.
+- Open `/frontend/home.html` to upload an acquisition instead of using Postman.
