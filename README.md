@@ -44,7 +44,7 @@
 ```
 - Send GET request to http://localhost:80/acquisitions/id to retrieve all acquisitions belonging to a patient id.
 - Send DELETE request to http://localhost:80/acquisitions/id to delete an acquisition by acquisition id.
-- Send GET request to http://localhost:80/download/id to download an image belonging to an acquisition where id is acquisition id.
+- Send GET request to http://localhost:80/acquisitions/download/id to download an image belonging to an acquisition where id is acquisition id.
 
 ### Frontend
 - Open `/frontend/home.html` to upload an acquisition instead of using Postman.
