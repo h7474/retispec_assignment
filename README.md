@@ -1,22 +1,22 @@
 # Retispec Assignment
 
 ### Build application
-- Install Docker Compose version v2.6.0
-- Navigate to `/backend`
-- Run `docker compose up --build retispec` to run db and assignment
-- Run `docker ps` to see that both db and assignment are running
+- Install Docker Compose version v2.6.0.
+- Navigate to `/backend`.
+- Run `docker compose up --build retispec` to run db and assignment.
 
 ### Monitor Application
-- Open new shell, run `docker exec -it db psql -U postgres` to login to db
-- Run `\dt` inside postgres shell to view tables
-- Run `select * from patient;` to grab all patients
-- Run `select * from acquisition;` to grab all acquisitions
-- Open new shell, run `docker exec -it assignment bash` to login to assignment container
-- Check `\uploads` directory inside the assignment container for images uploaded
+- Run `docker ps` to check if both db and assignment are up and running.
+- Open new shell, run `docker exec -it db psql -U postgres` to login to db.
+- Run `\dt` inside postgres shell to view tables.
+- Run `select * from patient;` to grab all patients.
+- Run `select * from acquisition;` to grab all acquisitions.
+- Open new shell, run `docker exec -it assignment bash` to login to assignment container.
+- Check `\uploads` directory in the assignment container for acquisition images uploaded.
 
 ### Patients API
 - Install Postman to send queries to docker container running at `http://localhost:80/`
-- Send POST request to http://localhost:80/patients with body to create new patient:
+- Send POST request to http://localhost:80/patients to create new patient with body as:
 ```
     {
         "fname": "Nir",
@@ -31,7 +31,7 @@
 
 ### Acquisitions API
 - Install Postman to send queries to docker container running at `http://localhost:80/`
-- Send POST request to http://localhost:80/acquisitions with formdata to create new acquisition:
+- Send POST request to http://localhost:80/acquisitions to create new acquisition with formdata as:
 ```
     {
         "patient_id": "Nir",
@@ -39,12 +39,12 @@
         "site": "Ottawa",
         "date":"2022-09-27"
         "operator":"Nir Oren"
-        "image": attach file on Postman
+        "image": ..this is a file key
     }
 ```
-- Send GET request to http://localhost:80/acquisitions/id to get all acquisitions for a given patient
-- Send DELETE request to http://localhost:80/patients/id to delete an acquisition by id
-- Send GET request to http://localhost:80/download/id to download an image for an acquisition where id is acquisition id.
+- Send GET request to http://localhost:80/acquisitions/id to retrieve all acquisitions belonging to a patient id.
+- Send DELETE request to http://localhost:80/acquisitions/id to delete an acquisition by acquisition id.
+- Send GET request to http://localhost:80/download/id to download an image belonging to an acquisition where id is acquisition id.
 
 ### Frontend
-- Open home.html to upload an acquisition instead of using Postman
+- Open `home.html` to upload an acquisition instead of using Postman.
