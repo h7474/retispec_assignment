@@ -22,6 +22,7 @@ class Patient(db.Model):
     lname = db.Column(db.String(120), nullable=False)
     dob = db.Column(db.Date, nullable=True, default=None)
     sex = db.Column(db.String(50), nullable=True, default=None)
+    acquisitions = db.relationship('Acquisition', backref='patient', lazy=True)
 
     def __init__(self, fname, lname, dob, sex):
         self.fname = fname
@@ -135,13 +136,15 @@ def get_acquisitions(patient_id):
         patients.append(patient.__dict__)
     return jsonify(patients)
 
-# To delete an existing patient:
+# To delete an existing acquisition:
 
 @app.route('/acquisitions/<id>', methods=['DELETE'])
 def delete_acquisition(id):
     db.session.query(Acquisition).filter_by(id=id).delete()
     db.session.commit()
     return "acquisition deleted"
+
+# To download an acquisition image:
 
 @app.route('/acquisitions/download/<id>', methods=['GET'])
 def download_image(id):
