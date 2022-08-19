@@ -17,12 +17,12 @@ db = SQLAlchemy(app)
 class Patient(db.Model):
     __tablename__ = "patient"
     
-    id = db.Column(db.Integer, primary_key=True)
+    id = db.Column(db.Integer, primary_key=True, unique=True, autoincrement=True)
     fname = db.Column(db.String(120), nullable=False)
     lname = db.Column(db.String(120), nullable=False)
     dob = db.Column(db.Date, nullable=True, default=None)
     sex = db.Column(db.String(50), nullable=True, default=None)
-    acquisitions = db.relationship('Acquisition', backref='patient', lazy=True)
+    acquisitions = db.relationship('Acquisition', backref='patient', lazy=True, single_parent=True, cascade="all, delete, delete-orphan")
 
     def __init__(self, fname, lname, dob, sex):
         self.fname = fname
@@ -33,7 +33,7 @@ class Patient(db.Model):
 class Acquisition(db.Model):
     __tablename__ = "acquisition"
 
-    id = db.Column(db.Integer, primary_key=True)
+    id = db.Column(db.Integer, primary_key=True, unique=True, autoincrement=True)
     patient_id = db.Column(db.Integer, db.ForeignKey("patient.id"))
     eye = db.Column(db.String(50), nullable=False, default=None)
     site = db.Column(db.String(50), nullable=False, default=None)
@@ -53,9 +53,17 @@ db.create_all()
 
 @app.route('/patients/<id>', methods=['GET'])
 def get_patient(id):
-    patient = Patient.query.get(id)
-    del patient.__dict__['_sa_instance_state']
-    return jsonify(patient.__dict__)
+    
+    patient_exists = db.session.query(
+        db.session.query(Patient).filter_by(id=id).exists()
+    ).scalar()
+
+    if (not patient_exists):
+        return "patient " + str(id) + " doesn't exist", 404
+    else:
+        patient = Patient.query.get(id)
+        del patient.__dict__['_sa_instance_state']
+        return jsonify(patient.__dict__), 200
 
 # To retrieve all patients with fname, name:
 
@@ -65,33 +73,74 @@ def get_patients():
     
     fname = request.args.get('fname', None)
     lname = request.args.get('lname', None)
-    
-    if fname != None and lname != None:
-        for patient in db.session.query(Patient).filter_by(fname=fname, lname=lname).all():
-            del patient.__dict__['_sa_instance_state']
-            patients.append(patient.__dict__)
-        return jsonify(patients)
+   
+    if (fname==None or lname==None):
+        if fname==None:
+            return "missing first name in request", 422
+        elif lname==None:
+            return "missing last name in request", 422
+    elif fname != None and lname != None:
+
+        patient_exists = db.session.query(
+            db.session.query(Patient).filter_by(fname=fname, lname=lname).exists()
+        ).scalar()
+
+        if (not patient_exists):
+            return "no patients with name " + str(fname)+" "+str(lname)+" exist", 404
+        else:
+            patients = []
+            for patient in db.session.query(Patient).filter_by(fname=fname, lname=lname).all():
+                del patient.__dict__['_sa_instance_state']
+                patients.append(patient.__dict__)
+            return jsonify(patients), 200
 
 # To create a new patient:
 
 @app.route('/patients', methods=['POST'])
 def create_patient():
+
     body = request.get_json()
-    db.session.add(Patient(body['fname'], \
-                           body['lname'], \
-                           body['dob'], \
-                           body['sex']
-                  ))
-    db.session.commit()
-    return "patient created in table"
+
+    patient_exists = db.session.query(
+        db.session.query(Patient).filter_by(fname=body['fname'], \
+                                          lname=body['lname'], \
+                                          dob=body['dob'], \
+                                          sex=body['sex']).exists()
+    ).scalar()
+
+    if (patient_exists):
+        return "patient already exists", 409
+    else:
+        
+        new_patient = Patient(body['fname'], \
+                              body['lname'], \
+                              body['dob'], \
+                              body['sex'])
+
+        db.session.add(new_patient)
+        db.session.commit()
+
+
+        return "new patient with id "+ str(new_patient.id) + " created", 200
 
 # To delete an existing patient:
 
 @app.route('/patients/<id>', methods=['DELETE'])
 def delete_patient(id):
-    db.session.query(Patient).filter_by(id=id).delete()
-    db.session.commit()
-    return "patient deleted"
+
+    patient_exists = db.session.query(
+        db.session.query(Patient).filter_by(id=id).exists()
+    ).scalar()
+
+    if (not patient_exists):
+        return "patient doesn't exist", 204
+    else:
+        patient = db.session.query(Patient).filter(Patient.id==id).first()
+        db.session.delete(patient)
+        
+        #db.session.query(Patient).filter_by(id=id).delete()
+        db.session.commit()
+        return "patient " + str(id) + " deleted", 200
 
 def allowed_file(filename):     
     return '.' in filename and \
@@ -104,59 +153,104 @@ def create_acquisition():
     file = request.files['image']
 
     if file.filename == '':
-        return "No selected file"
+        return "missing image file in request", 422
+    elif file and not allowed_file(file.filename):
+        return "attachment not a valid image file", 422
     elif file and allowed_file(file.filename): 
         
         form = request.form
-        filename = file.filename
-        ext = "." + filename.rsplit('.', 1)[1].lower()
 
-        acquisition = Acquisition(form['patient_id'], \
+        patient_exists = db.session.query(
+            db.session.query(Patient).filter_by(id=form['patient_id']).exists()
+        ).scalar()
+    
+        if (not patient_exists):
+            return "patient " + str(form['patient_id']) + " doesn't exist.", 400
+        else:
+
+            filename = file.filename
+            ext = "." + filename.rsplit('.', 1)[1].lower()
+
+            acquisition = Acquisition(form['patient_id'], \
                                   form['eye'], \
                                   form['site'], \
                                   form['date'], \
                                   form['operator'])                  
 
-        db.session.add(acquisition)
-        db.session.commit()
+            db.session.add(acquisition)
+            db.session.commit()
 
-        acquisition_filename = "acquisition_" + str(acquisition.id) + ext
-        file.save(os.path.join(app.config['UPLOAD_FOLDER'], acquisition_filename))
+            acquisition_filename = "acquisition_" + str(acquisition.id) + ext
+            file.save(os.path.join(app.config['UPLOAD_FOLDER'], acquisition_filename))
 
-        return "acquisition created in table"
+            return "new acquisition with " + str(acquisition.id) +" created.", 200
 
 # To retrieve all acquisitions for a patient:
 
 @app.route('/acquisitions/<patient_id>', methods=['GET'])
 def get_acquisitions(patient_id):
-    patients = [] 
+    
+    patient_exists = db.session.query(
+        db.session.query(Patient).filter_by(id=patient_id).exists()
+    ).scalar()
+
+    if (not patient_exists):
+        return "patient " + str(patient_id) + "  doesn't exist", 409
+    elif (patient_exists):
+        acquisition_exists = db.session.query(
+            db.session.query(Acquisition).filter_by(patient_id=patient_id).exists()
+        ).scalar()
+
+        if (not acquisition_exists):
+            return "no acquisitions exist for patient " + str(patient_id), 404
+        else:
+            patients = [] 
    
-    for patient in db.session.query(Acquisition).filter_by(patient_id=patient_id).all():
-        del patient.__dict__['_sa_instance_state']
-        patients.append(patient.__dict__)
-    return jsonify(patients)
+            for patient in db.session.query(Acquisition).filter_by(patient_id=patient_id).all():
+                del patient.__dict__['_sa_instance_state']
+                patients.append(patient.__dict__)
+            return jsonify(patients), 200
 
 # To delete an existing acquisition:
 
 @app.route('/acquisitions/<id>', methods=['DELETE'])
 def delete_acquisition(id):
-    db.session.query(Acquisition).filter_by(id=id).delete()
-    db.session.commit()
-    return "acquisition deleted"
+    
+    acquisition_exists = db.session.query(
+        db.session.query(Acquisition).filter_by(id=id).exists()
+    ).scalar()
+
+    if (not acquisition_exists):
+        return "acquisition doesn't exist", 204
+    else:
+        #db.session.query(Acquisition).filter_by(id=id).delete()
+        
+        acquisition = db.session.query(Acquisition).filter(Acquisition.id==id).first()
+        db.session.delete(acquisition)
+ 
+        db.session.commit()
+        return "acquisition "+str(id)+" deleted", 200
 
 # To download an acquisition image:
 
 @app.route('/acquisitions/download/<id>', methods=['GET'])
 def download_image(id):
-        
-    for ext in ALLOWED_EXTENSIONS:
-        acquisition_filename = "acquisition_" + str(id) + "." + ext
-        file_path = os.path.join(app.config['UPLOAD_FOLDER'], acquisition_filename)
-         
-        if os.path.exists(file_path):
-            return send_file(file_path, as_attachment=True) 
+       
+    acquisition_exists = db.session.query(
+        db.session.query(Acquisition).filter_by(id=id).exists()
+    ).scalar()
 
-    return "image not found"
+    if (not acquisition_exists):
+        return "acquisition " + str(id) + " doesn't exist", 204
+    else:
+        for ext in ALLOWED_EXTENSIONS:
+            acquisition_filename = "acquisition_" + str(id) + "." + ext
+            file_path = os.path.join(app.config['UPLOAD_FOLDER'], acquisition_filename)
+         
+            if os.path.exists(file_path):
+                return send_file(file_path, as_attachment=True), 200
+
+        return "image not found for acquisition " + str(id), 404
 
 if __name__ == '__main__':
     app.run(debug=True)
