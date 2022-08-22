@@ -121,7 +121,7 @@ def create_patient():
         db.session.commit()
 
 
-        return "new patient with id "+ str(new_patient.id) + " created", 200
+        return "new patient with id "+ str(new_patient.id) + " created", 201
 
 # To delete an existing patient:
 
@@ -183,7 +183,7 @@ def create_acquisition():
             acquisition_filename = "acquisition_" + str(acquisition.id) + ext
             file.save(os.path.join(app.config['UPLOAD_FOLDER'], acquisition_filename))
 
-            return "new acquisition with " + str(acquisition.id) +" created.", 200
+            return "new acquisition with " + str(acquisition.id) +" created.", 201
 
 # To retrieve all acquisitions for a patient:
 
